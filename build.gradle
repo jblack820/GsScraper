@@ -27,6 +27,7 @@ dependencies {
 	implementation("org.postgresql:postgresql:42.7.3")
 	implementation('org.flywaydb:flyway-core:9.22.3')
 	testImplementation 'com.h2database:h2:2.2.224'
+	implementation 'org.springframework.boot:spring-boot-starter-logging'
 }
 
 tasks.named('test') {

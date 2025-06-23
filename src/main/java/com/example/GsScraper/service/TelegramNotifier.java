@@ -48,10 +48,11 @@ public class TelegramNotifier {
 
     private static String constructInstrumentMessage(InstrumentDto instrument) {
         return String.format(
-                "\n<b> %s </b>\n\n" +
-                        "<a href=\"%s\">📌 URL: %s</a> \n" +
-                        "<b>📅 Dátum:</b> %s\n" +
-                        "<b>💰 Ár:</b> %s\n" +
+                " \n " +
+                "<b>%s</b>\n\n" +
+                        "<a href=\"%s\">📌 %s</a> \n" +
+                        "<b>📅 </b> %s\n" +
+                        "<b>💰 </b> %s\n" +
                         "<a href=\"%s\">🔗 Kép link</a> \n\n",
                 instrument.getTitle(),
                 instrument.getUrl(),

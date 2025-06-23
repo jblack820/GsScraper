@@ -20,42 +20,77 @@ import java.util.List;
 public class ScraperScheduler {
 
     @Autowired
-    InstrumentRepository instrumentRepository;
+    private InstrumentRepository instrumentRepository;
 
     @Autowired
-    TelegramNotifier telegramNotifier;
+    private TelegramNotifier telegramNotifier;
 
     @Autowired
-    GsSearchKeywordRepository gsSearchKeywordRepository;
+    private GsSearchKeywordRepository gsSearchKeywordRepository;
+
+    @Autowired
+    private InstrumentScraperService scraperService;
 
     static final int minutes = 60 * 1000;
 
-    private final InstrumentScraperService scraperService;
-
-    public ScraperScheduler(InstrumentScraperService scraperService) {
-        this.scraperService = scraperService;
-    }
 
     @Scheduled(fixedRate = 30 * minutes)
     public void scheduledFetch() {
-            List<String> keywords = new ArrayList<>();
-            gsSearchKeywordRepository.findAll().forEach(keyword -> {keywords.add(keyword.getKeyword());});
 
-            keywords.forEach( keyword -> {
-                List<InstrumentEntity> instruments = null;
-                try {
-                    instruments = scraperService.fetchInstruments(keyword);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
+        List<String> keywords = getAllKeywordsFromDb();
+
+        keywords.forEach(
+                keyword -> {
+
+                    //get new instruments by keyword
+                    List<InstrumentEntity> newInstruments = fetchNewInstruments(keyword);
+
+                    //persist new instruments
+                    instrumentRepository.saveAll(newInstruments);
+
+                    //notify user
+                    sendNewInstrumentNotificationToUser(
+                            InstrumentMapper.toDtos(newInstruments),
+                            keyword
+                    );
                 }
-                List<InstrumentDto> newInstruments = getNewInstruments(instruments);
-                sendNewInstrumentNotificationToUser(newInstruments, keyword);
-            });
+        );
     }
+
+    @Scheduled(cron = "0 0 21 * * *")
+    public void sendEveningBriefing() {
+        List<InstrumentDto> allInstruments = InstrumentMapper.toDtos(instrumentRepository.findAll());
+        telegramNotifier.sendSimpleMessage("ESTI JELENTÉS: ");
+        sendSummary(allInstruments);
+    }
+
+    private List<InstrumentEntity> fetchNewInstruments(String keyword) {
+        List<InstrumentEntity> allMatchingInstruments = getAllMatchingInstruments(keyword);
+        return getNewInstruments(allMatchingInstruments);
+    }
+
+    private List<InstrumentEntity> getAllMatchingInstruments(String keyword) {
+        List<InstrumentEntity> allMatchingInstruments;
+        try {
+            allMatchingInstruments = new ArrayList<>(scraperService.fetchInstruments(keyword));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return allMatchingInstruments;
+    }
+
+    private List<String> getAllKeywordsFromDb() {
+        List<String> keywords = new ArrayList<>();
+        gsSearchKeywordRepository.findAll().forEach(keyword -> {
+            keywords.add(keyword.getKeyword());
+        });
+        return keywords;
+    }
+
 
     private void sendNewInstrumentNotificationToUser(List<InstrumentDto> newInstruments, String keyword) {
         if (!newInstruments.isEmpty()) {
-            telegramNotifier.sendSimpleMessage("Új hirdetés ebben a kategóriában: " + keyword);
+            telegramNotifier.sendSimpleMessage("\n<b>!!! ÚJ HIRDETÉS EBBEN A KATEGÓRIÁBAN: </b> \n " + keyword + "\n");
             newInstruments.forEach(
                     instrumentDto -> telegramNotifier.sendNewInstrumentNotification(instrumentDto)
             );
@@ -64,15 +99,22 @@ public class ScraperScheduler {
         }
     }
 
-    private List<InstrumentDto> getNewInstruments(List<InstrumentEntity> instruments) {
-        List<InstrumentDto> newInstruments = new ArrayList<>();
+    private void sendSummary(List<InstrumentDto> newInstruments) {
+        if (!newInstruments.isEmpty()) {
+            newInstruments.forEach(instrumentDto -> telegramNotifier.sendNewInstrumentNotification(instrumentDto)
+            );
+        } else {
+            System.out.println("A KERESÉSI LISTA JELENLEG TELJESEN ÜRES");
+        }
+    }
 
-        //checking for new instruments, saving them to db and adding them to notification list
+    private List<InstrumentEntity> getNewInstruments(List<InstrumentEntity> instruments) {
+        List<InstrumentEntity> newInstruments = new ArrayList<>();
+
         instruments.forEach(
                 instrumentEntity -> {
                     if (!instrumentRepository.existsByTitlePictureURL(instrumentEntity.getTitlePictureURL())) {
-                        instrumentRepository.save(instrumentEntity);
-                        newInstruments.add(InstrumentMapper.toDto(instrumentEntity));
+                        newInstruments.add(instrumentEntity);
                     }
                 }
         );

@@ -16,24 +16,22 @@ import java.util.Map;
 @Service
 public class InstrumentScraperService {
 
-    private static final String SEARCH_URL = "https://gsfanatic.com/hu/search?choice=instrument&search_settings=de4ea6de49bf5d49f815e194b744b8f7&q=";
+    private static final String GS_FANATIC_BASE_SEARCH_URL = "https://gsfanatic.com/hu/search?choice=instrument&search_settings=de4ea6de49bf5d49f815e194b744b8f7&q=";
 
     public List<InstrumentEntity> fetchInstruments(String keyword) throws IOException {
-        Document doc = Jsoup.connect(SEARCH_URL+keyword)
-                .headers(Map.of(
-                        "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-                        "Accept-Language", "en-US,en;q=0.9",
-                        "Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                        "Connection", "keep-alive",
-                        "Referer", "https://gsfanatic.com/"
-                ))
+
+        Document doc = Jsoup.connect(GS_FANATIC_BASE_SEARCH_URL +keyword)
+                .headers(constructHeaderForGsFanatic())
                 .timeout(10_000)
                 .get();
 
-
         Elements cards = doc.select("div.card");
-        List<InstrumentEntity> instruments = new ArrayList<>();
 
+        return getInstrumentsFromCards(cards);
+    }
+
+    private List<InstrumentEntity> getInstrumentsFromCards(Elements cards) {
+        List<InstrumentEntity> instruments = new ArrayList<>();
         for (Element card : cards) {
             try {
                 Element titleEl = card.selectFirst("h2.h6");
@@ -61,8 +59,17 @@ public class InstrumentScraperService {
                 System.err.println("Hirdetés feldolgozása sikertelen: " + e.getMessage());
             }
         }
-
         return instruments;
+    }
+
+    private static Map<String, String> constructHeaderForGsFanatic() {
+        return Map.of(
+                "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+                "Accept-Language", "en-US,en;q=0.9",
+                "Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Connection", "keep-alive",
+                "Referer", "https://gsfanatic.com/"
+        );
     }
 }
 

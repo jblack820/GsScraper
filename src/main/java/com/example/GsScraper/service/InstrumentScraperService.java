@@ -19,15 +19,16 @@ public class InstrumentScraperService {
     private static final String GS_FANATIC_BASE_SEARCH_URL = "https://gsfanatic.com/hu/search?choice=instrument&search_settings=de4ea6de49bf5d49f815e194b744b8f7&q=";
 
     public List<InstrumentEntity> fetchInstruments(String keyword) throws IOException {
+        Document doc = fetchItems(GS_FANATIC_BASE_SEARCH_URL + keyword);
+        Elements cards = doc.select("div.card");
+        return getInstrumentsFromCards(cards);
+    }
 
-        Document doc = Jsoup.connect(GS_FANATIC_BASE_SEARCH_URL +keyword)
+    private static Document fetchItems(String searchUrl) throws IOException {
+        return Jsoup.connect(searchUrl)
                 .headers(constructHeaderForGsFanatic())
                 .timeout(10_000)
                 .get();
-
-        Elements cards = doc.select("div.card");
-
-        return getInstrumentsFromCards(cards);
     }
 
     private List<InstrumentEntity> getInstrumentsFromCards(Elements cards) {
@@ -48,12 +49,14 @@ public class InstrumentScraperService {
                 String imgUrl = imgEl.absUrl("src");
                 String url = urlEl.absUrl("href");
 
+
                 instruments.add(new InstrumentEntity(
                         url,
                         LocalDate.now(),
                         title,
                         priceText,
-                        imgUrl
+                        imgUrl,
+                        true
                 ));
             } catch (Exception e) {
                 System.err.println("Hirdetés feldolgozása sikertelen: " + e.getMessage());

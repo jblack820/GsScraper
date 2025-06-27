@@ -11,7 +11,8 @@ public class InstrumentMapper {
                 instrument.getDate(),
                 instrument.getTitle(),
                 instrument.getPrice(),
-                instrument.getTitlePictureURL());
+                instrument.getTitlePictureURL(),
+                instrument.isActive());
     }
 
     public static List<InstrumentDto> toDtos(List<InstrumentEntity> instruments) {
@@ -22,12 +23,4 @@ public class InstrumentMapper {
         return instrumentDtos;
     }
 
-    public static InstrumentEntity toEntity(InstrumentDto instrument) {
-        return new InstrumentEntity(
-                instrument.getUrl(),
-                instrument.getDate(),
-                instrument.getTitle(),
-                instrument.getPrice(),
-                instrument.getTitlePictureURL());
-    }
 }

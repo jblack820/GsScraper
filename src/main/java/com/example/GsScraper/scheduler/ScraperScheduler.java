@@ -60,7 +60,7 @@ public class ScraperScheduler {
     @Scheduled(cron = "0 0 21 * * *")
     public void sendEveningBriefing() {
         List<InstrumentDto> allInstruments = InstrumentMapper.toDtos(instrumentRepository.findAll());
-        telegramNotifier.sendSimpleMessage("ESTI JELENTÉS: ");
+        telegramNotifier.sendSimpleMessage("\nESTI JELENTÉS: \n");
         sendSummary(allInstruments);
     }
 

@@ -17,19 +17,18 @@ public class InstrumentEntity {
     private String price;
     @Column(name = "titlepictureurl")
     private String titlePictureURL;
+    private boolean active;
 
-
-    public InstrumentEntity(String url, LocalDate date, String title, String price, String titlePictureURL) {
+    public InstrumentEntity(String url, LocalDate date, String title, String price, String titlePictureURL, boolean active) {
         this.url = url;
         this.date = date;
         this.title = title;
         this.price = price;
         this.titlePictureURL = titlePictureURL;
+        this.active = active;
     }
 
-    public InstrumentEntity() {
-
-    }
+    public InstrumentEntity() {}
 
     public Long getId() {
         return id;
@@ -79,15 +78,11 @@ public class InstrumentEntity {
         this.titlePictureURL = titlePictureURL;
     }
 
-    @Override
-    public String toString() {
-        return "InstrumentEntity{" +
-                "id=" + id +
-                ", url='" + url + '\'' +
-                ", date=" + date +
-                ", title='" + title + '\'' +
-                ", price='" + price + '\'' +
-                ", titlePictureURL='" + titlePictureURL + '\'' +
-                '}';
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
     }
 }

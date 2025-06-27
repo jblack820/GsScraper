@@ -1,7 +1,5 @@
 package com.example.GsScraper.model;
 
-import jakarta.persistence.Column;
-
 import java.time.LocalDate;
 
 public class InstrumentDto {
@@ -10,21 +8,15 @@ public class InstrumentDto {
     private String title;
     private String price;
     private String titlePictureURL;
+    private boolean active;
 
-    public InstrumentDto(String url, LocalDate date, String title, String price, String titlePictureURL) {
+    public InstrumentDto(String url, LocalDate date, String title, String price, String titlePictureURL, boolean active) {
         this.url = url;
         this.date = date;
         this.title = title;
         this.price = price;
         this.titlePictureURL = titlePictureURL;
-    }
-
-    public LocalDate getDate() {
-        return date;
-    }
-
-    public void setDate(LocalDate date) {
-        this.date = date;
+        this.active = active;
     }
 
     public String getUrl() {
@@ -33,6 +25,14 @@ public class InstrumentDto {
 
     public void setUrl(String url) {
         this.url = url;
+    }
+
+    public LocalDate getDate() {
+        return date;
+    }
+
+    public void setDate(LocalDate date) {
+        this.date = date;
     }
 
     public String getTitle() {
@@ -59,14 +59,11 @@ public class InstrumentDto {
         this.titlePictureURL = titlePictureURL;
     }
 
-    @Override
-    public String toString() {
-        return "InstrumentDto{" +
-                "date=" + date +
-                ", url='" + url + '\'' +
-                ", title='" + title + '\'' +
-                ", price='" + price + '\'' +
-                ", titlePictureURL='" + titlePictureURL + '\'' +
-                '}';
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
     }
 }

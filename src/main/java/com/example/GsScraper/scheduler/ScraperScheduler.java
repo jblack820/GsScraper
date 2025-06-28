@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Component
 public class ScraperScheduler {
@@ -37,13 +38,13 @@ public class ScraperScheduler {
     @Scheduled(fixedRate = 30 * minutes)
     public void scheduledFetch() {
 
-        List<String> keywords = getAllKeywordsFromDb();
+        List<String> keywordsList = getAllKeywordsFromDb();
 
-        keywords.forEach(
-                keyword -> {
+        keywordsList.forEach(
+                currentKeyword -> {
 
                     //get new instruments by keyword
-                    List<InstrumentEntity> newInstruments = fetchNewInstruments(keyword);
+                    List<InstrumentEntity> newInstruments = getInstrumentEntities(currentKeyword);
 
                     //persist new instruments
                     instrumentRepository.saveAll(newInstruments);
@@ -51,16 +52,53 @@ public class ScraperScheduler {
                     //notify user
                     sendNewInstrumentNotificationToUser(
                             InstrumentMapper.toDtos(newInstruments),
-                            keyword
+                            currentKeyword
                     );
                 }
         );
     }
 
+    private List<InstrumentEntity> getInstrumentEntities(String currentKeyword) {
+        String[] keywordArray = extractSingleKeywordsOrPhreses(currentKeyword);
+        String cleanedKeyword = currentKeyword.replaceAll("&", " ");
+
+        return fetchNewInstruments(cleanedKeyword)
+                .stream()
+                .filter(instrument -> containsAll(instrument.getTitle(), keywordArray))
+                .collect(Collectors.toList());
+    }
+
+    private static String[] extractSingleKeywordsOrPhreses(String keyword) {
+        String[] keywords = keyword.split("$");
+        for (int i = 0; i < keywords.length; i++) {
+            keywords[i] = keywords[i].trim();
+        }
+        return keywords;
+    }
+
+    private boolean containsAll(String title, String[] keywords) {
+        boolean result = true;
+        for (String keyword : keywords) {
+            if (!title.toLowerCase().contains(keyword.toLowerCase())) {
+                result = false;
+            }
+        }
+        return result;
+    }
+
     @Scheduled(cron = "0 0 21 * * *")
     public void sendEveningBriefing() {
+        sendBriefingWithMessage("ESTI JELENTÉS");
+    }
+
+    @Scheduled(cron = "0 0 8 * * *")
+    public void sendMorningBriefing() {
+        sendBriefingWithMessage("REGGELI JELENTÉS");
+    }
+
+    private void sendBriefingWithMessage(String message) {
         List<InstrumentDto> allInstruments = InstrumentMapper.toDtos(instrumentRepository.findAll());
-        telegramNotifier.sendSimpleMessage("\nESTI JELENTÉS: \n");
+        telegramNotifier.sendSimpleMessage("\n"+message+": \n");
         sendSummary(allInstruments);
     }
 

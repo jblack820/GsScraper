@@ -85,4 +85,11 @@ public class InstrumentEntity {
     public void setActive(boolean active) {
         this.active = active;
     }
+
+    @Override
+    public String toString() {
+        return "\nInstrumentEntity{" +
+                "url='" + url + '\'' +
+                '}';
+    }
 }

@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 @Component
@@ -39,36 +40,55 @@ public class ScraperScheduler {
     public void scheduledFetch() {
 
         List<String> keywordsList = getAllKeywordsFromDb();
+        List<InstrumentEntity> allInstrumentsInDb = instrumentRepository.findAll();
+        List<InstrumentEntity> allInstrumentsFound = new ArrayList<>();
 
         keywordsList.forEach(
                 currentKeyword -> {
 
-                    //get new instruments by keyword
-                    List<InstrumentEntity> newInstruments = getInstrumentEntities(currentKeyword);
+                    //scrape for new instruments
+                    List<InstrumentEntity> allInstrumentMatchingKeyword = getAllMatchingInstruments(currentKeyword);
+                    allInstrumentsFound.addAll(allInstrumentMatchingKeyword);
+                    System.out.println("Matching instruments found: " + allInstrumentMatchingKeyword);
+                    // save send notification about new instruments
+                    List<InstrumentEntity> newInstruments = filterForNewInstruments(allInstrumentsInDb, allInstrumentMatchingKeyword);
+                    if (!newInstruments.isEmpty()) {
 
-                    //persist new instruments
-                    instrumentRepository.saveAll(newInstruments);
-
-                    //notify user
-                    sendNewInstrumentNotificationToUser(
-                            InstrumentMapper.toDtos(newInstruments),
-                            currentKeyword
-                    );
+                        instrumentRepository.saveAll(newInstruments);
+                        sendNewInstrumentNotificationToUser(
+                                InstrumentMapper.toDtos(newInstruments),
+                                currentKeyword
+                        );
+                    }
                 }
         );
+
+        // inactivate and send notification about newly inactive instruments
+        List<InstrumentEntity> newlyInactiveInstruments = filterForNewInactiveInstruments(allInstrumentsInDb, allInstrumentsFound);
+        if (!newlyInactiveInstruments.isEmpty()) {
+            setInactiveInstruments(newlyInactiveInstruments);
+            instrumentRepository.saveAll(newlyInactiveInstruments);
+            sendNewInactiveInstrumentNotificationToUser(
+                    InstrumentMapper.toDtos(newlyInactiveInstruments));
+        }
     }
 
-    private List<InstrumentEntity> getInstrumentEntities(String currentKeyword) {
-        String[] keywordArray = extractSingleKeywordsOrPhreses(currentKeyword);
+
+    private List<InstrumentEntity> getAllMatchingInstruments(String currentKeyword) {
+
+        //extracting keywords separated by & operator
+        String[] keywordArray = extractSingleKeywordsOrPhrases(currentKeyword);
+
+        //removing the & operator for the search itself
         String cleanedKeyword = currentKeyword.replaceAll("&", " ");
 
-        return fetchNewInstruments(cleanedKeyword)
+        return scrapeForInstruments(cleanedKeyword)
                 .stream()
                 .filter(instrument -> containsAll(instrument.getTitle(), keywordArray))
                 .collect(Collectors.toList());
     }
 
-    private static String[] extractSingleKeywordsOrPhreses(String keyword) {
+    private static String[] extractSingleKeywordsOrPhrases(String keyword) {
         String[] keywords = keyword.split("$");
         for (int i = 0; i < keywords.length; i++) {
             keywords[i] = keywords[i].trim();
@@ -98,16 +118,12 @@ public class ScraperScheduler {
 
     private void sendBriefingWithMessage(String message) {
         List<InstrumentDto> allInstruments = InstrumentMapper.toDtos(instrumentRepository.findAll());
-        telegramNotifier.sendSimpleMessage("\n"+message+": \n");
+        telegramNotifier.sendSimpleMessage("\n" + message + ": \n");
         sendSummary(allInstruments);
     }
 
-    private List<InstrumentEntity> fetchNewInstruments(String keyword) {
-        List<InstrumentEntity> allMatchingInstruments = getAllMatchingInstruments(keyword);
-        return getNewInstruments(allMatchingInstruments);
-    }
 
-    private List<InstrumentEntity> getAllMatchingInstruments(String keyword) {
+    private List<InstrumentEntity> scrapeForInstruments(String keyword) {
         List<InstrumentEntity> allMatchingInstruments;
         try {
             allMatchingInstruments = new ArrayList<>(scraperService.fetchInstruments(keyword));
@@ -127,36 +143,74 @@ public class ScraperScheduler {
 
 
     private void sendNewInstrumentNotificationToUser(List<InstrumentDto> newInstruments, String keyword) {
-        if (!newInstruments.isEmpty()) {
-            telegramNotifier.sendSimpleMessage("\n<b>!!! ÚJ HIRDETÉS EBBEN A KATEGÓRIÁBAN: </b> \n " + keyword + "\n");
-            newInstruments.forEach(
-                    instrumentDto -> telegramNotifier.sendNewInstrumentNotification(instrumentDto)
-            );
-        } else {
-            System.out.println("Nincs uj hangszer ebben a kategóriában: " + keyword);
-        }
+        telegramNotifier.sendSimpleMessage("\n<b>!!! ÚJ HIRDETÉS EBBEN A KATEGÓRIÁBAN: </b> \n " + keyword + "\n");
+        newInstruments.forEach(
+                instrumentDto -> telegramNotifier.sendInstrumentNotification(instrumentDto)
+        );
+
+    }
+
+    private void sendNewInactiveInstrumentNotificationToUser(List<InstrumentDto> dtos) {
+        telegramNotifier.sendSimpleMessage("\n<b>!!! A következő hangszerek hirdetése inaktív lett: </b> \n ");
+        dtos.forEach(
+                instrumentDto -> telegramNotifier.sendInstrumentNotification(instrumentDto)
+        );
+    }
+
+    private void setInactiveInstruments(List<InstrumentEntity> newlyInactiveInstruments) {
+        newlyInactiveInstruments.forEach(instrumentEntity -> {
+            instrumentEntity.setActive(false);
+        });
     }
 
     private void sendSummary(List<InstrumentDto> newInstruments) {
         if (!newInstruments.isEmpty()) {
-            newInstruments.forEach(instrumentDto -> telegramNotifier.sendNewInstrumentNotification(instrumentDto)
+            newInstruments.forEach(instrumentDto -> telegramNotifier.sendInstrumentNotification(instrumentDto)
             );
         } else {
             System.out.println("A KERESÉSI LISTA JELENLEG TELJESEN ÜRES");
         }
     }
 
-    private List<InstrumentEntity> getNewInstruments(List<InstrumentEntity> instruments) {
+    private List<InstrumentEntity> filterForNewInstruments(List<InstrumentEntity> allInstrumentsInDb, List<InstrumentEntity> allInstrumentMatchingKeyword) {
         List<InstrumentEntity> newInstruments = new ArrayList<>();
-
-        instruments.forEach(
-                instrumentEntity -> {
-                    if (!instrumentRepository.existsByTitlePictureURL(instrumentEntity.getTitlePictureURL())) {
+        allInstrumentMatchingKeyword.forEach(instrumentEntity ->
+                {
+                    String instrumentAdURL = instrumentEntity.getUrl();
+                    boolean isAlreadyInDb = false;
+                    for (InstrumentEntity instrumentInDb : allInstrumentsInDb) {
+                        if (instrumentInDb.getUrl().equals(instrumentAdURL)) {
+                            isAlreadyInDb = true;
+                            break;
+                        }
+                    }
+                    if (!isAlreadyInDb) {
                         newInstruments.add(instrumentEntity);
                     }
                 }
         );
         return newInstruments;
+    }
+
+    private List<InstrumentEntity> filterForNewInactiveInstruments(List<InstrumentEntity> allInstrumentsInDb, List<InstrumentEntity> allInstrumentMatchingKeyword) {
+        List<InstrumentEntity> newInactiveInstruments = new ArrayList<>();
+
+        allInstrumentsInDb.forEach(instrumentInDb -> {
+            String instrumentURL = instrumentInDb.getUrl();
+            AtomicBoolean isAdPresent = new AtomicBoolean(false);
+            for (InstrumentEntity instrumentEntity : allInstrumentMatchingKeyword) {
+                if (instrumentEntity.getUrl().equals(instrumentURL)) {
+                    isAdPresent.set(true);
+                    break;
+                }
+            }
+
+            if (!isAdPresent.get()) {
+                newInactiveInstruments.add(instrumentInDb);
+            }
+        });
+
+        return newInactiveInstruments;
     }
 }
 

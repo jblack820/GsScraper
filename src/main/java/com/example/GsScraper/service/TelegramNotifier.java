@@ -22,7 +22,7 @@ public class TelegramNotifier {
     @Value("${telegram.chat.id}")
     private String chatId;
 
-    public void sendNewInstrumentNotification(InstrumentDto instrument) {
+    public void sendInstrumentNotification(InstrumentDto instrument) {
         String message = constructInstrumentMessage(instrument);
         sendTelegramMessage(message);
     }

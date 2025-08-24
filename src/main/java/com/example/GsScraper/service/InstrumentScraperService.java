@@ -1,5 +1,6 @@
 package com.example.GsScraper.service;
 
+import com.example.GsScraper.exception.HumanVerificationException;
 import com.example.GsScraper.model.InstrumentEntity;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -16,10 +17,13 @@ import java.util.Map;
 @Service
 public class InstrumentScraperService {
 
-    private static final String GS_FANATIC_BASE_SEARCH_URL = "https://gsfanatic.com/hu/search?choice=instrument&search_settings=de4ea6de49bf5d49f815e194b744b8f7&q=";
+    private static final String GS_FANATIC_BASE_SEARCH_URL = "https://gsfanatic.com/hu/search?choice=instrument&search_settings=b8294105e5915c0485458bd158fddfaa&q=";
 
     public List<InstrumentEntity> fetchInstruments(String keyword) throws IOException {
         Document doc = fetchItems(GS_FANATIC_BASE_SEARCH_URL + keyword);
+        if (hasHumanVerificationWarning(doc)){
+            throw new HumanVerificationException("Human Verification page encountered");
+        }
         Elements cards = doc.select("div.card");
         return getInstrumentsFromCards(cards);
     }
@@ -73,6 +77,11 @@ public class InstrumentScraperService {
                 "Connection", "keep-alive",
                 "Referer", "https://gsfanatic.com/"
         );
+    }
+
+    private boolean hasHumanVerificationWarning(Document doc) {
+        String title = doc.title();
+        return title.trim().equalsIgnoreCase("Human Verification");
     }
 }
 

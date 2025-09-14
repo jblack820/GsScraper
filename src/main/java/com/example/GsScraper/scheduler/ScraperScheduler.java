@@ -7,15 +7,15 @@ import com.example.GsScraper.model.InstrumentEntity;
 import com.example.GsScraper.model.InstrumentMapper;
 import com.example.GsScraper.repository.GsSearchKeywordRepository;
 import com.example.GsScraper.repository.InstrumentRepository;
-import com.example.GsScraper.service.InstrumentScraperService;
+import com.example.GsScraper.service.SeleniumInstrumentScraperService;
 import com.example.GsScraper.service.TelegramNotifier;
 import com.example.GsScraper.utils.ScraperUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 
-import java.io.IOException;
 import java.time.LocalTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -23,13 +23,11 @@ import java.util.stream.Collectors;
 @Component
 public class ScraperScheduler {
 
-    private static final int TIMEOUT_RETRY_AFTER_SECONDS = 5;
     private static final int MINUTES = 60 * 1000;
     private static final LocalTime SCRAPING_SERVICE_START_TIME = LocalTime.of(7, 30);
     private static final LocalTime SCRAPING_SERVICE_END_TIME = LocalTime.of(22, 30);
-    public static int SCRAPE_RATE_LIMIT_SECONDS = 20;
+    public static int SCRAPE_RATE_LIMIT_SECONDS = 3;
     public static int SCRAPE_RATE_LIMIT_RAISE_STEP_INTERVAL = 5;
-    private static int SCRAPE_TRY_COUNTER = 0;
     private static boolean IS_SCRAPING_OFF_HOURS_NOTIFICATION_SENT = false;
 
     @Autowired
@@ -42,17 +40,24 @@ public class ScraperScheduler {
     private GsSearchKeywordRepository gsSearchKeywordRepository;
 
     @Autowired
-    private InstrumentScraperService scraperService;
+    private SeleniumInstrumentScraperService seleniumInstrumentScraperService;
 
-    @Scheduled(fixedRate = 30 * MINUTES, initialDelay = 5_000)
+    @Value("${app.scraping.only-daytime:false}")
+    private boolean isOnlyDayTimeScraping;
+
+
+    @Scheduled(fixedRate = 60 * MINUTES, initialDelay = 5_000)
     public void scheduledFetch() {
 
-
-        if (isBetween(SCRAPING_SERVICE_START_TIME, SCRAPING_SERVICE_END_TIME)) {
-            IS_SCRAPING_OFF_HOURS_NOTIFICATION_SENT = true;
-            startScheduledFetchAndNotification();
+        if (isOnlyDayTimeScraping) {
+            if (isBetween(SCRAPING_SERVICE_START_TIME, SCRAPING_SERVICE_END_TIME)) {
+                IS_SCRAPING_OFF_HOURS_NOTIFICATION_SENT = true;
+                startScheduledFetchAndNotification();
+            } else {
+                sendScrapingIsOffWorkingHoursNotification(SCRAPING_SERVICE_START_TIME, SCRAPING_SERVICE_END_TIME);
+            }
         } else {
-            sendScrapingIsOffWorkingHoursNotification(SCRAPING_SERVICE_START_TIME, SCRAPING_SERVICE_END_TIME);
+            startScheduledFetchAndNotification();
         }
     }
 
@@ -83,16 +88,27 @@ public class ScraperScheduler {
             sendHumanVerificationErrorNotification();
             return;
         }
-        Map<String, List<InstrumentEntity>> newInstrumentsMap = addNewInstruments(allInstrumentsFound, allActiveInstrumentsInDb);
+        Map<String, List<InstrumentEntity>> newInstrumentsMap =
+                addNewInstruments(
+                        allInstrumentsFound,
+                        allActiveInstrumentsInDb);
 
         //Save new instruments & notify
         if (!newInstrumentsMap.isEmpty()) {
+            System.out.println("\nSAVE_TO_DB: Starting...");
             saveInstruments(mapToList(newInstrumentsMap));
+            System.out.println("SAVE_TO_DB: Completed!");
+
+            System.out.println("\nSENDING_TELEGRAM_NOTIFICATIONS: Starting...");
             sendNotificationAboutNewInstruments(newInstrumentsMap);
+            System.out.println("SENDING_TELEGRAM_NOTIFICATIONS: Completed!");
         }
 
         //If an ad removed, mark inactive in db & notify
-        List<InstrumentEntity> newlyInactiveInstruments = filterForNewInactiveInstruments(allActiveInstrumentsInDb, mapToList(allInstrumentsFound));
+        List<InstrumentEntity> newlyInactiveInstruments =
+                filterForNewInactiveInstruments(allActiveInstrumentsInDb,
+                        mapToList(allInstrumentsFound));
+
         if (!newlyInactiveInstruments.isEmpty()) {
             inactivateInDb(newlyInactiveInstruments);
             sendNotificationAboutNewInactiveInstruments(InstrumentMapper.toDtos(newlyInactiveInstruments));
@@ -113,12 +129,16 @@ public class ScraperScheduler {
 
         Map<String, List<InstrumentEntity>> allInstrumentsFound = new LinkedHashMap<>();
 
+        int counter = 1;
         for (String keyword : keywordsList) {
+            System.out.println("\n\nKERESÉS: " + counter + "/" + keywordsList.size());
             List<InstrumentEntity> instrumentsByKeyword = fetchInstrumentsMatching(keyword);
             if (!instrumentsByKeyword.isEmpty()) {
                 allInstrumentsFound.put(keyword, instrumentsByKeyword);
             }
+            counter++;
             ScraperUtils.waitForSecondsWithConsoleMessage(SCRAPE_RATE_LIMIT_SECONDS, "Scrape iteration limit: Várunk " + SCRAPE_RATE_LIMIT_SECONDS + " másodpercet a következő keresés előtt");
+
         }
         return allInstrumentsFound;
     }
@@ -150,7 +170,9 @@ public class ScraperScheduler {
         //removing the & operator for the search itself
         String cleanedKeyword = currentKeyword.replaceAll("&", " ");
 
-        return scrapeForInstruments(cleanedKeyword).stream().filter(instrument -> containsAll(instrument.getTitle(), keywordArray)).collect(Collectors.toList());
+        return scrapeForInstruments(cleanedKeyword).stream()
+                .filter(instrument -> containsAllKeywords(instrument.getTitle(), keywordArray)
+                ).collect(Collectors.toList());
     }
 
     private void sendNotificationAboutNewInstruments(Map<String, List<InstrumentEntity>> newInstrumentsMap) {
@@ -173,7 +195,7 @@ public class ScraperScheduler {
         return keywords;
     }
 
-    private boolean containsAll(String title, String[] keywords) {
+    private boolean containsAllKeywords(String title, String[] keywords) {
         boolean result = true;
         for (String keyword : keywords) {
             if (!title.toLowerCase().contains(keyword.toLowerCase())) {
@@ -186,27 +208,12 @@ public class ScraperScheduler {
 
     private List<InstrumentEntity> scrapeForInstruments(String keyword) throws HumanVerificationException {
 
-        List<InstrumentEntity> allMatchingInstruments = new ArrayList<>();
-        try {
-            allMatchingInstruments.addAll(scraperService.fetchInstruments(keyword));
-        } catch (HumanVerificationException humanVerificationException) {
-            throw humanVerificationException;
-        } catch (IOException e) {
-            System.err.println("Timeout ennél a kulcsszónál: " + keyword + " Megpróbálom még egyszer " + TIMEOUT_RETRY_AFTER_SECONDS + " másodperc múlva");
-            if (SCRAPE_TRY_COUNTER == 0) {
-                SCRAPE_TRY_COUNTER++;
-                ScraperUtils.waitForSeconds(TIMEOUT_RETRY_AFTER_SECONDS);
-                scrapeForInstruments(keyword);
-            } else {
-                System.err.println("Második timeout ennél a kulcsszónál: " + keyword + "Folytatom egy másik kulcsszóval " + TIMEOUT_RETRY_AFTER_SECONDS + " másodperc múlva");
-                ScraperUtils.waitForSeconds(TIMEOUT_RETRY_AFTER_SECONDS);
-                SCRAPE_TRY_COUNTER = 0;
-            }
-        }
+
+        List<InstrumentEntity> allMatchingInstruments = new ArrayList<>(seleniumInstrumentScraperService.fetchInstruments(keyword));
         if (allMatchingInstruments.isEmpty()) {
             System.out.println("Nincs hangszer ezzel a kulcsszóval: " + keyword);
         } else {
-            System.out.println("Összesen" + allMatchingInstruments.size() + " db hangszer ezzel a kulcsszóval: " + keyword);
+            System.out.println("Összesen " + allMatchingInstruments.size() + " db találat ezzel a kulcsszóval: " + keyword);
         }
         return allMatchingInstruments;
     }
@@ -293,7 +300,6 @@ public class ScraperScheduler {
                 String.format("\n<b>*** SCRAPING INDUL... RATE LIMIT: %d másodperc ***</b>\n", SCRAPE_RATE_LIMIT_SECONDS)
         );
     }
-
 
     private void sendScrapingIsOffWorkingHoursNotification(LocalTime time1, LocalTime time2) {
         if (!IS_SCRAPING_OFF_HOURS_NOTIFICATION_SENT) {

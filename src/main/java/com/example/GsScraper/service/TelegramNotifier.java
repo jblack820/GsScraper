@@ -24,6 +24,7 @@ public class TelegramNotifier {
 
     public void sendInstrumentNotification(InstrumentDto instrument) {
         String message = constructInstrumentMessage(instrument);
+        System.out.println("TELEGRAM: Attempting notification:" + instrument.getTitle());
         sendTelegramMessage(message);
     }
 

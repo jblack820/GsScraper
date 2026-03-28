@@ -1,6 +1,6 @@
-package com.example.GsScraper.service;
+package com.example.GsScraper.service.notification;
 
-import com.example.GsScraper.model.InstrumentDto;
+import com.example.GsScraper.model.dto.ListingDto;
 import org.springframework.beans.factory.annotation.Value;
 
 import java.net.http.HttpRequest;
@@ -22,7 +22,7 @@ public class TelegramNotifier {
     @Value("${telegram.chat.id}")
     private String chatId;
 
-    public void sendInstrumentNotification(InstrumentDto instrument) {
+    public void sendInstrumentNotification(ListingDto instrument) {
         String message = constructInstrumentMessage(instrument);
         System.out.println("TELEGRAM: Attempting notification:" + instrument.getTitle());
         sendTelegramMessage(message);
@@ -47,7 +47,7 @@ public class TelegramNotifier {
         }
     }
 
-    private static String constructInstrumentMessage(InstrumentDto instrument) {
+    private static String constructInstrumentMessage(ListingDto instrument) {
         return String.format(
                 " \n " +
                 "<b>%s</b>\n\n" +
@@ -60,7 +60,7 @@ public class TelegramNotifier {
                 instrument.getUrl(),
                 instrument.getDate(),
                 instrument.getPrice(),
-                instrument.getTitlePictureURL()
+                instrument.getTitlePictureUrl()
         );
     }
 }

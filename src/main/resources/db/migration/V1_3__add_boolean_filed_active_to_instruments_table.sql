@@ -1,2 +1,0 @@
-ALTER TABLE public.instruments
-ADD COLUMN active BOOLEAN DEFAULT TRUE;

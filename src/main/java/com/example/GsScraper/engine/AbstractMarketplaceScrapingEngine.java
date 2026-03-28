@@ -1,0 +1,119 @@
+package com.example.GsScraper.engine;
+
+import com.example.GsScraper.mapper.ListingMapper;
+import com.example.GsScraper.model.dto.ListingDto;
+import com.example.GsScraper.model.entity.ListingEntity;
+import com.example.GsScraper.model.entity.SearchKeywordEntity;
+import com.example.GsScraper.repository.ListingRepository;
+import com.example.GsScraper.repository.SearchKeywordRepository;
+import com.example.GsScraper.service.notification.TelegramNotifier;
+
+import java.util.List;
+
+public abstract class AbstractMarketplaceScrapingEngine implements MarketplaceScrapingEngine {
+
+    protected final SearchKeywordRepository searchKeywordRepository;
+    protected final ListingRepository listingRepository;
+    protected final TelegramNotifier telegramNotifier;
+    protected final ListingMapper listingMapper;
+
+    protected AbstractMarketplaceScrapingEngine(SearchKeywordRepository searchKeywordRepository,
+                                                ListingRepository listingRepository,
+                                                TelegramNotifier telegramNotifier,
+                                                ListingMapper listingMapper) {
+        this.searchKeywordRepository = searchKeywordRepository;
+        this.listingRepository = listingRepository;
+        this.telegramNotifier = telegramNotifier;
+        this.listingMapper = listingMapper;
+    }
+
+    @Override
+    public void runScrapingCycle() {
+        List<String> keywords = getKeywords();
+
+        for (String keyword : keywords) {
+            scrapeKeyword(keyword);
+            waitBetweenFetches();
+        }
+    }
+
+    protected List<String> getKeywords() {
+        return searchKeywordRepository.findByMarketplace(getMarketplace())
+                .stream()
+                .map(SearchKeywordEntity::getKeyword)
+                .toList();
+    }
+
+    protected void scrapeKeyword(String keyword) {
+        List<ListingDto> foundListings = fetchAndFilter(keyword);
+
+        List<ListingDto> newListings = foundListings.stream()
+                .filter(dto -> !listingRepository.existsByMarketplaceAndUrl(getMarketplace(), dto.getUrl()))
+                .toList();
+
+        if (!newListings.isEmpty()) {
+            List<ListingEntity> entities = newListings.stream()
+                    .map(dto -> listingMapper.toEntity(dto, getMarketplace()))
+                    .toList();
+
+            listingRepository.saveAll(entities);
+            sendNewListingNotifications(keyword, newListings);
+        }
+    }
+
+    protected void sendNewListingNotifications(String keyword, List<ListingDto> newListings) {
+        telegramNotifier.sendSimpleMessage(
+                "\n<b>\uD83D\uDD14 ÚJ HIRDETÉS - " + getMarketplace() + "</b>\n" + keyword + "\n"
+        );
+        newListings.forEach(telegramNotifier::sendInstrumentNotification);
+    }
+
+    @Override
+    public boolean isSummaryReportsEnabled() {
+        return false;
+    }
+
+    @Override
+    public void sendMorningBriefing() {
+        if (!isSummaryReportsEnabled()) {
+            return;
+        }
+
+        telegramNotifier.sendSimpleMessage(
+                "\n<b>REGGELI JELENTÉS - " + getMarketplace() + "</b>\n"
+        );
+
+        sendSummary();
+    }
+
+    @Override
+    public void sendEveningBriefing() {
+        if (!isSummaryReportsEnabled()) {
+            return;
+        }
+
+        telegramNotifier.sendSimpleMessage(
+                "\n<b>ESTI JELENTÉS - " + getMarketplace() + "</b>\n"
+        );
+
+        sendSummary();
+    }
+
+    protected void sendSummary() {
+        List<ListingDto> listings = listingRepository.findByMarketplace(getMarketplace())
+                .stream()
+                .map(listingMapper::toDto)
+                .toList();
+
+        if (listings.isEmpty()) {
+            telegramNotifier.sendSimpleMessage("Nincs jelenleg eltárolt találat ehhez: " + getMarketplace());
+            return;
+        }
+
+        listings.forEach(telegramNotifier::sendInstrumentNotification);
+    }
+
+    protected abstract List<ListingDto> fetchAndFilter(String keyword);
+
+    protected abstract void waitBetweenFetches();
+}

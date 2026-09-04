@@ -13,22 +13,17 @@ import java.time.Duration;
 import java.util.List;
 
 public abstract class AbstractSeleniumMarketplaceScraper implements MarketplaceScraper {
-
     protected WebDriver driver;
     protected WebDriverWait wait;
 
     @Override
     public List<ListingDto> fetchListings(String keyword) {
         initDriver();
-
         try {
             String searchUrl = buildSearchUrl(keyword);
             openPage(searchUrl);
-
             handleVerificationIfNeeded();
-
             Document document = getPageSourceAsDocument();
-
             return parseListings(document);
         } catch (Exception e) {
             throw new RuntimeException("Scraping failed for marketplace: " + getMarketplace(), e);

@@ -1,33 +1,10 @@
-CREATE TABLE IF NOT EXISTS public.listings
-(
-    id
-    BIGSERIAL
-    PRIMARY
-    KEY,
-    url
-    TEXT
-    NOT
-    NULL
-    UNIQUE,
-    date
-    DATE,
-    title
-    TEXT
-    NOT
-    NULL,
-    price
-    TEXT,
-    title_picture_url
-    TEXT,
-    active
-    BOOLEAN
-    NOT
-    NULL
-    DEFAULT
-    true,
-    marketplace
-    VARCHAR
-(
-    50
-) NOT NULL
+CREATE TABLE IF NOT EXISTS public.listings (
+   id BIGSERIAL PRIMARY KEY,
+   url TEXT NOT NULL UNIQUE,
+   date DATE,
+   title TEXT NOT NULL,
+   price TEXT,
+   title_picture_url TEXT,
+   active BOOLEAN NOT NULL DEFAULT true,
+   marketplace VARCHAR(50) NOT NULL
     );

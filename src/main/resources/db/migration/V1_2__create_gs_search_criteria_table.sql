@@ -1,26 +1,9 @@
-CREATE TABLE IF NOT EXISTS public.search_keyword
-(
-    id
-    BIGSERIAL
-    PRIMARY
-    KEY,
-    keyword
-    TEXT
-    NOT
-    NULL,
-    marketplace
-    VARCHAR
-(
-    50
-) NOT NULL,
-    created_at TIMESTAMP DEFAULT now
-(
-),
-    UNIQUE
-(
-    keyword,
-    marketplace
-)
+CREATE TABLE IF NOT EXISTS public.search_keyword (
+   id BIGSERIAL PRIMARY KEY,
+   keyword TEXT NOT NULL,
+   marketplace VARCHAR(50) NOT NULL,
+   created_at TIMESTAMP DEFAULT now(),
+   UNIQUE (keyword, marketplace)
     );
 
 INSERT INTO public.search_keyword (keyword, marketplace) VALUES

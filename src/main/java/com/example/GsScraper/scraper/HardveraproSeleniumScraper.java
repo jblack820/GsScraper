@@ -37,7 +37,6 @@ public class HardveraproSeleniumScraper extends AbstractSeleniumMarketplaceScrap
     @Override
     protected List<ListingDto> parseListings(Document doc) {
         List<ListingDto> results = new ArrayList<>();
-
         Elements items = doc.select("div.uad");
 
         for (Element item : items) {

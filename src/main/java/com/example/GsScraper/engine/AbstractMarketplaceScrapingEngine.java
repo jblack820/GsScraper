@@ -4,6 +4,7 @@ import com.example.GsScraper.mapper.ListingMapper;
 import com.example.GsScraper.model.dto.ListingDto;
 import com.example.GsScraper.model.entity.ListingEntity;
 import com.example.GsScraper.model.entity.SearchKeywordEntity;
+import com.example.GsScraper.model.enumerated.Marketplace;
 import com.example.GsScraper.repository.ListingRepository;
 import com.example.GsScraper.repository.SearchKeywordRepository;
 import com.example.GsScraper.service.notification.TelegramNotifier;
@@ -62,9 +63,7 @@ public abstract class AbstractMarketplaceScrapingEngine implements MarketplaceSc
     }
 
     protected void sendNewListingNotifications(String keyword, List<ListingDto> newListings) {
-        telegramNotifier.sendSimpleMessage(
-                "\n<b>\uD83D\uDD14 ÚJ HIRDETÉS - " + getMarketplace() + "</b>\n" + keyword + "\n"
-        );
+        telegramNotifier.sendSimpleMessage(createNewListingNotification(keyword, getMarketplace()));
         newListings.forEach(telegramNotifier::sendInstrumentNotification);
     }
 
@@ -78,11 +77,7 @@ public abstract class AbstractMarketplaceScrapingEngine implements MarketplaceSc
         if (!isSummaryReportsEnabled()) {
             return;
         }
-
-        telegramNotifier.sendSimpleMessage(
-                "\n<b>REGGELI JELENTÉS - " + getMarketplace() + "</b>\n"
-        );
-
+        telegramNotifier.sendSimpleMessage(createBriefingMessage("REGGELI JELENTÉS"));
         sendSummary();
     }
 
@@ -91,11 +86,7 @@ public abstract class AbstractMarketplaceScrapingEngine implements MarketplaceSc
         if (!isSummaryReportsEnabled()) {
             return;
         }
-
-        telegramNotifier.sendSimpleMessage(
-                "\n<b>ESTI JELENTÉS - " + getMarketplace() + "</b>\n"
-        );
-
+        telegramNotifier.sendSimpleMessage(createBriefingMessage("ESTI JELENTÉS"));
         sendSummary();
     }
 
@@ -116,4 +107,12 @@ public abstract class AbstractMarketplaceScrapingEngine implements MarketplaceSc
     protected abstract List<ListingDto> fetchAndFilter(String keyword);
 
     protected abstract void waitBetweenFetches();
+
+    private String createBriefingMessage(String title) {
+        return "\n<b>"+title+" - " + getMarketplace() + "</b>\n";
+    }
+
+    private String createNewListingNotification(String keyword, Marketplace marketplace) {
+        return "\n<b>\uD83D\uDD14 ÚJ HIRDETÉS - " + marketplace + "</b>\n" + keyword + "\n";
+    }
 }

@@ -85,7 +85,7 @@ public class GsFanaticSeleniumScraper extends AbstractSeleniumMarketplaceScraper
     @Override
     protected WebElement findVerificationCheckbox() {
         try {
-            System.out.println("  -- WebDRIVER: Searching for human verification checkbox...");
+
 
             Thread.sleep(2500);
 
@@ -107,6 +107,7 @@ public class GsFanaticSeleniumScraper extends AbstractSeleniumMarketplaceScraper
                         if (checkbox.isDisplayed()
                                 && "checkbox".equals(checkbox.getAttribute("type"))
                                 && checkbox.getAttribute("id") != null) {
+                            System.out.println("  -- WebDRIVER: Human verification checkbox found!");
                             return checkbox;
                         }
                     }
@@ -114,7 +115,7 @@ public class GsFanaticSeleniumScraper extends AbstractSeleniumMarketplaceScraper
                     System.err.println("Error with selector " + selector + ": " + e.getMessage());
                 }
             }
-
+            System.out.println("\n-- WebDRIVER: No human verification checkbox found");
             return null;
 
         } catch (Exception e) {

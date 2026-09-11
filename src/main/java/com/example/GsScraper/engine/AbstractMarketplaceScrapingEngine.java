@@ -9,6 +9,8 @@ import com.example.GsScraper.repository.ListingRepository;
 import com.example.GsScraper.repository.SearchKeywordRepository;
 import com.example.GsScraper.service.notification.TelegramNotifier;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 public abstract class AbstractMarketplaceScrapingEngine implements MarketplaceScrapingEngine {
@@ -47,16 +49,19 @@ public abstract class AbstractMarketplaceScrapingEngine implements MarketplaceSc
 
     protected void scrapeKeyword(String keyword) {
         List<ListingDto> foundListings = fetchAndFilter(keyword);
+        System.out.println("Tisztított találatok (címben szerepel a keyword): " + foundListings.size());
 
         List<ListingDto> newListings = foundListings.stream()
                 .filter(dto -> !listingRepository.existsByMarketplaceAndUrl(getMarketplace(), dto.getUrl()))
                 .toList();
+        System.out.println("Új találat ezek közül: " + newListings.size());
+
 
         if (!newListings.isEmpty()) {
             List<ListingEntity> entities = newListings.stream()
                     .map(dto -> listingMapper.toEntity(dto, getMarketplace()))
                     .toList();
-
+            entities.forEach(listingEntity -> listingEntity.setActive(true));
             listingRepository.saveAll(entities);
             sendNewListingNotifications(keyword, newListings);
         }
@@ -64,6 +69,7 @@ public abstract class AbstractMarketplaceScrapingEngine implements MarketplaceSc
 
     protected void sendNewListingNotifications(String keyword, List<ListingDto> newListings) {
         telegramNotifier.sendSimpleMessage(createNewListingNotification(keyword, getMarketplace()));
+        System.out.println(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) + " - TELEGRAM: sending notifications about new items (" + newListings.size() + ")");
         newListings.forEach(telegramNotifier::sendInstrumentNotification);
     }
 

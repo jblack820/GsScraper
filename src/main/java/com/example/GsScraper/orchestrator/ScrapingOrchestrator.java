@@ -7,6 +7,8 @@ import org.springframework.core.annotation.AnnotationAwareOrderComparator;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -55,11 +57,11 @@ public class ScrapingOrchestrator {
     }
 
     private void runAllScrapersSequentially() {
-        System.out.println("SCRAPING ORCHESTRATOR: Starting scraping cycle...");
+        System.out.println("\n\n***************** SCRAPING ORCHESTRATOR: Starting scraping cycle...   *****************");
 
         for (MarketplaceScrapingEngine engine : scrapingEngines) {
             try {
-                System.out.println("SCRAPING ORCHESTRATOR: Starting marketplace: " + engine.getMarketplace());
+                System.out.println("\n" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) + " - SCRAPING ORCHESTRATOR: Starting marketplace: " + engine.getMarketplace());
 
                 if (engine.isEnabledAtCurrentTime()) {
                     engine.runScrapingCycle();
@@ -67,7 +69,7 @@ public class ScrapingOrchestrator {
                     System.out.println("SCRAPING ORCHESTRATOR: Skipped due to time window: " + engine.getMarketplace());
                 }
 
-                System.out.println("SCRAPING ORCHESTRATOR: Finished marketplace: " + engine.getMarketplace());
+                System.out.println("\n" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) + " - SCRAPING ORCHESTRATOR: Finished marketplace: " + engine.getMarketplace());
 
             } catch (Exception e) {
                 System.err.println("SCRAPING ORCHESTRATOR: Error while scraping " + engine.getMarketplace() + ": " + e.getMessage());

@@ -11,6 +11,7 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Objects;
 
 public abstract class AbstractSeleniumMarketplaceScraper implements MarketplaceScraper {
     protected WebDriver driver;
@@ -24,6 +25,7 @@ public abstract class AbstractSeleniumMarketplaceScraper implements MarketplaceS
             openPage(searchUrl);
             handleVerificationIfNeeded();
             Document document = getPageSourceAsDocument();
+            System.out.println("Keresés kulcsszóval: " + keyword);
             return parseListings(document);
         } catch (Exception e) {
             throw new RuntimeException("Scraping failed for marketplace: " + getMarketplace(), e);
@@ -62,8 +64,9 @@ public abstract class AbstractSeleniumMarketplaceScraper implements MarketplaceS
     protected Document getPageSourceAsDocument() {
         waitForPageToLoad();
         String pageSource = driver.getPageSource();
+        assert pageSource != null;
         Document doc = Jsoup.parse(pageSource);
-        doc.setBaseUri(driver.getCurrentUrl());
+        doc.setBaseUri(Objects.requireNonNull(driver.getCurrentUrl()));
         return doc;
     }
 

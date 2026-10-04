@@ -1,6 +1,6 @@
 package com.example.GsScraper.orchestrator;
 
-import com.example.GsScraper.engine.MarketplaceScrapingEngine;
+import com.example.GsScraper.engine.abstraction.MarketplaceScrapingEngine;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.annotation.AnnotationAwareOrderComparator;

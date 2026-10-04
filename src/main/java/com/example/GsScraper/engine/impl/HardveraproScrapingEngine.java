@@ -1,13 +1,14 @@
-package com.example.GsScraper.engine;
+package com.example.GsScraper.engine.impl;
 
 import com.example.GsScraper.config.MarketplaceConfigProperties;
 import com.example.GsScraper.config.MarketplaceProperties;
+import com.example.GsScraper.engine.abstraction.AbstractMarketplaceScrapingEngine;
 import com.example.GsScraper.mapper.ListingMapper;
 import com.example.GsScraper.model.dto.ListingDto;
 import com.example.GsScraper.model.enumerated.Marketplace;
+import com.example.GsScraper.scraper.HardveraproSeleniumScraper;
 import com.example.GsScraper.repository.ListingRepository;
 import com.example.GsScraper.repository.SearchKeywordRepository;
-import com.example.GsScraper.scraper.GsFanaticSeleniumScraper;
 import com.example.GsScraper.service.notification.TelegramNotifier;
 import com.example.GsScraper.util.ScraperUtils;
 import org.springframework.stereotype.Service;
@@ -16,17 +17,17 @@ import java.time.LocalTime;
 import java.util.List;
 
 @Service
-public class GsFanaticScrapingEngine extends AbstractMarketplaceScrapingEngine {
+public class HardveraproScrapingEngine extends AbstractMarketplaceScrapingEngine {
 
-    private final GsFanaticSeleniumScraper scraper;
+    private final HardveraproSeleniumScraper scraper;
     private final MarketplaceConfigProperties marketplaceConfigProperties;
 
-    public GsFanaticScrapingEngine(SearchKeywordRepository searchKeywordRepository,
-                                   ListingRepository listingRepository,
-                                   TelegramNotifier telegramNotifier,
-                                   ListingMapper listingMapper,
-                                   GsFanaticSeleniumScraper scraper,
-                                   MarketplaceConfigProperties marketplaceConfigProperties) {
+    public HardveraproScrapingEngine(SearchKeywordRepository searchKeywordRepository,
+                                     ListingRepository listingRepository,
+                                     TelegramNotifier telegramNotifier,
+                                     ListingMapper listingMapper,
+                                     HardveraproSeleniumScraper scraper,
+                                     MarketplaceConfigProperties marketplaceConfigProperties) {
         super(searchKeywordRepository, listingRepository, telegramNotifier, listingMapper);
         this.scraper = scraper;
         this.marketplaceConfigProperties = marketplaceConfigProperties;
@@ -34,7 +35,7 @@ public class GsFanaticScrapingEngine extends AbstractMarketplaceScrapingEngine {
 
     @Override
     public Marketplace getMarketplace() {
-        return Marketplace.GSFANATIC;
+        return Marketplace.HARDVERAPRO;
     }
 
     @Override
@@ -55,12 +56,7 @@ public class GsFanaticScrapingEngine extends AbstractMarketplaceScrapingEngine {
 
     @Override
     protected List<ListingDto> fetchAndFilter(String keyword) {
-        String[] parts = keyword.split("&");
-        String cleanedKeyword = keyword.replace("&", "+");
-
-        return scraper.fetchListings(cleanedKeyword).stream()
-                .filter(dto -> containsAllKeywords(dto.getTitle(), parts))
-                .toList();
+        return scraper.fetchListings(keyword);
     }
 
     @Override
@@ -69,15 +65,6 @@ public class GsFanaticScrapingEngine extends AbstractMarketplaceScrapingEngine {
     }
 
     private MarketplaceProperties properties() {
-        return marketplaceConfigProperties.getGsfanatic();
-    }
-
-    private boolean containsAllKeywords(String title, String[] keywords) {
-        for (String keyword : keywords) {
-            if (!title.toLowerCase().contains(keyword.trim().toLowerCase())) {
-                return false;
-            }
-        }
-        return true;
+        return marketplaceConfigProperties.getHardverapro();
     }
 }

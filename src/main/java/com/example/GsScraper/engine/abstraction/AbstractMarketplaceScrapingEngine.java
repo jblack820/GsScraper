@@ -1,4 +1,4 @@
-package com.example.GsScraper.engine;
+package com.example.GsScraper.engine.abstraction;
 
 import com.example.GsScraper.mapper.ListingMapper;
 import com.example.GsScraper.model.dto.ListingDto;

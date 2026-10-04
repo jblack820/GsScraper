@@ -25,7 +25,7 @@ public abstract class AbstractSeleniumMarketplaceScraper implements MarketplaceS
             openPage(searchUrl);
             handleVerificationIfNeeded();
             Document document = getPageSourceAsDocument();
-            System.out.println("Keresés kulcsszóval: " + keyword);
+            System.out.println("Keresés : " + searchUrl);
             return parseListings(document);
         } catch (Exception e) {
             throw new RuntimeException("Scraping failed for marketplace: " + getMarketplace(), e);
@@ -73,9 +73,8 @@ public abstract class AbstractSeleniumMarketplaceScraper implements MarketplaceS
     protected void waitForPageToLoad() {
         try {
             new WebDriverWait(driver, Duration.ofSeconds(10)).until(webDriver ->
-                    ((JavascriptExecutor) webDriver)
-                            .executeScript("return document.readyState")
-                            .equals("complete")
+                    Objects.equals(((JavascriptExecutor) webDriver)
+                            .executeScript("return document.readyState"), "complete")
             );
             Thread.sleep(2000);
         } catch (Exception e) {
